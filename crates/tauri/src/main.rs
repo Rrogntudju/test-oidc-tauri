@@ -5,7 +5,7 @@ mod pkce;
 use pkce::Pkce;
 
 mod fournisseur;
-use fournisseur::Fournisseur;
+pub use fournisseur::Fournisseur;
 
 #[tauri::command]
 async fn get_userinfos(fournisseur: &str) -> Result<String, String> {

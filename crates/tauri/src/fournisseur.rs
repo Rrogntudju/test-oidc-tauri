@@ -1,4 +1,4 @@
-
+use std::fmt;
 
 const ID_MS: &str = include_str!("../../../secrets/clientid.microsoft");
 const SECRET_MS: &str = include_str!("../../../secrets/secret.microsoft");
@@ -28,21 +28,21 @@ impl fmt::Display for Fournisseur {
 }
 
 impl Fournisseur {
-    fn endpoints(&self) -> (&str, &str) {
+    pub fn endpoints(&self) -> (&str, &str) {
         match self {
             Self::Microsoft => (AUTH_MS, TOKEN_MS),
             Self::Google => (AUTH_GG, TOKEN_GG),
         }
     }
 
-    fn secrets(&self) -> (&str, &str) {
+    pub fn secrets(&self) -> (&str, &str) {
         match self {
             Self::Microsoft => (ID_MS, SECRET_MS),
             Self::Google => (ID_GG, SECRET_GG),
         }
     }
 
-    fn userinfos(&self) -> &str {
+    pub fn userinfos(&self) -> &str {
         match self {
             Self::Microsoft => INFOS_MS,
             Self::Google => INFOS_GG,
