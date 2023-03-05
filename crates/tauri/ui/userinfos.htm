@@ -1,0 +1,50 @@
+<html>
+    <head>
+        <title>Userinfos</title>
+        <meta charset="utf-8"/>
+        <script src='knockout-3.5.1.js'></script>
+        <script type="module" src="/main.js" defer></script>
+        <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
+    </head>
+
+    <body>
+        <div class="w3-container w3-cell">
+            <img src="https://openid.net/images/logo/openid-icon-100x100.png">
+            <h1>OpenID Connect</h1>
+
+            <div class="w3-text-orange">
+                <h5><b>Fournisseur:</b></h5>
+                <div>
+                    <input class="w3-radio" type="radio" name="fournisseurs" value="Microsoft" data-bind="checked: fournisseur, click: clicFournisseur" />
+                    <b>Microsoft</b>
+                </div>
+                <div>
+                    <input class="w3-radio" type="radio" name="fournisseurs" value="Google" data-bind="checked: fournisseur, click: clicFournisseur" />
+                    <b>Google</b>
+                </div>
+            </div>
+
+            <button class="w3-button w3-round w3-orange w3-hover-amber w3-margin-top" data-bind="click: getUserInfos, enable: enableUserInfos">
+                <b>UserInfos</b>
+            </button>
+            <br><span class="w3-text-red" data-bind="text: erreurInvoke"></span></br>
+        </div>
+
+        <div class="w3-container w3-cell w3-animate-right" data-bind="visible: propriétés().length > 0">
+            <hr>
+            <h3><b>UserInfos</b> <span data-bind="text: fournisseur"></span></h3>
+
+            <table class="w3-table-all">
+                <thead>
+                    <tr class="w3-text-orange"><th>Propriété</th><th>Valeur</th></tr>
+                </thead>
+                <tbody data-bind="foreach: propriétés">
+                    <tr>
+                        <td data-bind="text: propriété"></td>
+                        <td data-bind="text: valeur"></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </body>
+</html>
