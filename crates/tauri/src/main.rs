@@ -1,11 +1,16 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use static_init::dynamic;
+
 mod pkce;
 use pkce::Pkce;
 
 mod fournisseur;
 pub use fournisseur::Fournisseur;
+
+#[dynamic]
+static mut TOKEN: Option<(Fournisseur, Pkce)> = None;
 
 #[tauri::command]
 async fn get_userinfos(fournisseur: &str) -> Result<String, String> {
