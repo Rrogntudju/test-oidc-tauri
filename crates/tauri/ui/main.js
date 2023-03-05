@@ -23,9 +23,7 @@ const { invoke } = window.__TAURI__.tauri;
         await invoke("get_userinfos", { fournisseur: this.fournisseur })
         .then((data) => {
             this.propriétés.removeAll();
-            for (const propriété of data) {
-                this.propriétés.push(propriété)
-            }
+            ko.utils.arrayPushAll(this.propriétés, data.propriétés);
         })
         .catch((error) => {
             console.log("Erreur Invoke: " + error);
