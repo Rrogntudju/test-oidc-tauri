@@ -12,18 +12,14 @@
   },
   "tauri": {
     "allowlist": {
-      "all": false,
-      "shell": {
-        "all": false,
-        "open": true
-      }
+      "all": false
     },
     "bundle": {
       "active": true,
       "icon": [
         "src/icons/icon.ico"
       ],
-      "identifier": "com.tauri.dev",
+      "identifier": "test.oidc",
       "targets": "all"
     },
     "security": {
@@ -34,6 +30,7 @@
     },
     "windows": [
       {
+        "url": "ui/userinfos.htm",
         "fullscreen": false,
         "resizable": true,
         "title": "Userinfos",
