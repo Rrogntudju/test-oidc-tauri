@@ -2,6 +2,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use once_cell::sync::Lazy;
+use serde_json::{Value, Map};
 use reqwest::Client;
 use std::time::Duration;
 use tauri::AppHandle;
@@ -15,6 +16,7 @@ pub use fournisseur::Fournisseur;
 
 static TOKEN: Lazy<RwLock<Option<(Fournisseur, Pkce)>>> = Lazy::new(|| RwLock::new(None));
 static CLIENT: Lazy<Client> = Lazy::new(|| Client::builder().timeout(Duration::from_secs(10)).build().unwrap());
+static LOL_MAP: Lazy<Map<String, Value>> = Lazy::new(|| Map::default());
 
 #[tauri::command]
 async fn get_userinfos(h: AppHandle, f: Fournisseur) -> Result<String, String> {
@@ -30,17 +32,27 @@ async fn get_userinfos(h: AppHandle, f: Fournisseur) -> Result<String, String> {
         token.replace((f.to_owned(), Pkce::new(&h, &f).map_err(|e| e.to_string())?));
     }
 
-    let response = CLIENT
+    let userinfos = CLIENT
         .get(f.userinfos())
-        .header("Authorization", &format!("Bearer {}", token.as_ref().unwrap().1.secret()))
+        .header("Authorization", format!("Bearer {}", token.as_ref().unwrap().1.secret()))
         .send()
         .await
         .map_err(|e| e.to_string())?
-        .text()
+        .json::<Value>()
         .await
         .map_err(|e| e.to_string())?;
 
-    Ok(response)
+        let map = userinfos.as_object().unwrap_or(&LOL_MAP);
+        let userinfos = map.iter()
+            .filter_map(|(k, v)| {
+                let mut map = Map::new();
+                map.insert("propriété".into(), Value::String(k.to_owned()));
+                map.insert("valeur".into(), v.to_owned());
+                Some(Value::Object(map))
+            })
+            .collect::<Vec<Value>>();
+
+    Ok(serde_json::to_string(&userinfos).unwrap_or_default())
 }
 
 fn main() {
