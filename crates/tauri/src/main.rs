@@ -25,11 +25,11 @@ async fn get_userinfos(f: Fournisseur, h: AppHandle) -> Result<String, String> {
         let (fournisseur, secret) = token.as_ref().unwrap();
         if &f != fournisseur || secret.is_expired() {
             let mut token = TOKEN.write().await;
-            token.replace((f.to_owned(), Pkce::new(&h, &f).map_err(|e| e.to_string())?));
+            token.replace((f.to_owned(), Pkce::new(&f, &h).map_err(|e| e.to_string())?));
         }
     } else {
         let mut token = TOKEN.write().await;
-        token.replace((f.to_owned(), Pkce::new(&h, &f).map_err(|e| e.to_string())?));
+        token.replace((f.to_owned(), Pkce::new(&f, &h).map_err(|e| e.to_string())?));
     }
 
     let userinfos = CLIENT

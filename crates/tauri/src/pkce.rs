@@ -19,7 +19,7 @@ pub struct Pkce {
 }
 
 impl Pkce {
-    pub fn new(h: &AppHandle, f: &Fournisseur) -> Result<Self, Error> {
+    pub fn new(f: &Fournisseur, h: &AppHandle) -> Result<Self, Error> {
         let (id, secret) = f.secrets();
         let id = ClientId::new(id.to_owned());
         let secret = ClientSecret::new(secret.to_owned());
