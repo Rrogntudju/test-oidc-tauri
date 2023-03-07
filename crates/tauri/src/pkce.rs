@@ -9,6 +9,7 @@ use oauth2::{
 use std::io::{BufRead, BufReader, Write};
 use std::net::TcpListener;
 use std::time::{Duration, Instant};
+use tauri::{AppHandle, WindowBuilder, WindowUrl};
 use url::Url;
 
 pub struct Pkce {
@@ -18,7 +19,7 @@ pub struct Pkce {
 }
 
 impl Pkce {
-    pub fn new(f: &Fournisseur) -> Result<Self, Error> {
+    pub fn new(h: &AppHandle, f: &Fournisseur) -> Result<Self, Error> {
         let (id, secret) = f.secrets();
         let id = ClientId::new(id.to_owned());
         let secret = ClientSecret::new(secret.to_owned());
@@ -42,7 +43,8 @@ impl Pkce {
             .url();
 
         let listener = TcpListener::bind("[::1]:86")?;
-        webbrowser::open(authorize_url.as_ref())?;
+        let oauth_window = WindowBuilder::new(h, "oauth2", WindowUrl::App(authorize_url.as_str().into())).build()?;
+        oauth_window.show();
 
         let mut code = AuthorizationCode::new(String::new());
         if let Some(mut stream) = listener.incoming().flatten().next() {
@@ -73,12 +75,9 @@ impl Pkce {
 
             let (_, value) = state_pair;
             assert_eq!(csrf_state.secret(), value.as_ref());
-
-            let message = "<p>Retournez dans l'application &#128526;</p>";
-            let response = format!("HTTP/1.1 200 OK\r\ncontent-length: {}\r\n\r\n{message}", message.len());
-            stream.write_all(response.as_bytes())?;
         }
 
+        oauth_window.close();
         let creation = Instant::now();
         let token = client.exchange_code(code).set_pkce_verifier(pkce_code_verifier).request(http_client)?;
         let expired_in = token.expires_in().unwrap_or(Duration::from_secs(3600));

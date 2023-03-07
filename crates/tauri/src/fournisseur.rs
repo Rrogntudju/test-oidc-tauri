@@ -1,3 +1,4 @@
+use serde::Deserialize;
 use std::fmt;
 
 const ID_MS: &str = include_str!("../../../secrets/clientid.microsoft");
@@ -11,7 +12,7 @@ const TOKEN_GG: &str = "https://oauth2.googleapis.com/token";
 const INFOS_MS: &str = "https://graph.microsoft.com/oidc/userinfo";
 const INFOS_GG: &str = "https://openidconnect.googleapis.com/v1/userinfo";
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 pub enum Fournisseur {
     Microsoft,
     Google,
