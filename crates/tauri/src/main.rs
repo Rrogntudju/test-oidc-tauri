@@ -19,7 +19,7 @@ static CLIENT: Lazy<Client> = Lazy::new(|| Client::builder().timeout(Duration::f
 static LOL_MAP: Lazy<Map<String, Value>> = Lazy::new(|| Map::default());
 
 #[tauri::command]
-async fn get_userinfos(h: AppHandle, f: Fournisseur) -> Result<String, String> {
+async fn get_userinfos(f: Fournisseur, h: AppHandle) -> Result<String, String> {
     let token = TOKEN.read().await;
     if token.is_some() {
         let (fournisseur, secret) = token.as_ref().unwrap();
