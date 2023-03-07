@@ -6,7 +6,7 @@ use oauth2::{
     AccessToken, AuthType, AuthUrl, AuthorizationCode, ClientId, ClientSecret, CsrfToken, PkceCodeChallenge, RedirectUrl, Scope, TokenResponse,
     TokenUrl,
 };
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader};
 use std::net::TcpListener;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, WindowBuilder, WindowUrl};
@@ -44,10 +44,10 @@ impl Pkce {
 
         let listener = TcpListener::bind("[::1]:86")?;
         let oauth_window = WindowBuilder::new(h, "oauth2", WindowUrl::App(authorize_url.as_str().into())).build()?;
-        oauth_window.show();
+        oauth_window.show()?;
 
         let mut code = AuthorizationCode::new(String::new());
-        if let Some(mut stream) = listener.incoming().flatten().next() {
+        if let Some(stream) = listener.incoming().flatten().next() {
             let mut request_line = String::new();
             let mut reader = BufReader::new(&stream);
             reader.read_line(&mut request_line)?;
@@ -77,7 +77,7 @@ impl Pkce {
             assert_eq!(csrf_state.secret(), value.as_ref());
         }
 
-        oauth_window.close();
+        oauth_window.close()?;
         let creation = Instant::now();
         let token = client.exchange_code(code).set_pkce_verifier(pkce_code_verifier).request(http_client)?;
         let expired_in = token.expires_in().unwrap_or(Duration::from_secs(3600));

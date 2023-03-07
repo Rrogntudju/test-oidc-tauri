@@ -2,10 +2,10 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use once_cell::sync::Lazy;
-use reqwest::{Client, Request};
-use static_init::dynamic;
+use reqwest::Client;
 use std::time::Duration;
 use tauri::AppHandle;
+use tauri::async_runtime::RwLock;
 
 mod pkce;
 use pkce::Pkce;
@@ -13,32 +13,34 @@ use pkce::Pkce;
 mod fournisseur;
 pub use fournisseur::Fournisseur;
 
-#[dynamic]
-static mut TOKEN: Option<(Fournisseur, Pkce)> = None;
+static TOKEN: Lazy<RwLock<Option<(Fournisseur, Pkce)>>> = Lazy::new(|| RwLock::new(None));
 static CLIENT: Lazy<Client> = Lazy::new(|| Client::builder().timeout(Duration::from_secs(10)).build().unwrap());
 
 #[tauri::command]
 async fn get_userinfos(h: AppHandle, f: Fournisseur) -> Result<String, String> {
-    let token = TOKEN.read();
+    let token = TOKEN.read().await;
     if token.is_some() {
         let (fournisseur, secret) = token.as_ref().unwrap();
         if &f != fournisseur || secret.is_expired() {
-            drop(token);
-            TOKEN.write().replace((f.to_owned(), Pkce::new(&h, &f).map_err(|e| e.to_string())?));
+            let mut token = TOKEN.write().await;
+            token.replace((f.to_owned(), Pkce::new(&h, &f).map_err(|e| e.to_string())?));
         }
     } else {
-        drop(token);
-        TOKEN.write().replace((f.to_owned(), Pkce::new(&h, &f).map_err(|e| e.to_string())?));
+        let mut token = TOKEN.write().await;
+        token.replace((f.to_owned(), Pkce::new(&h, &f).map_err(|e| e.to_string())?));
     }
 
-    CLIENT
+    let response = CLIENT
         .get(f.userinfos())
-        .header("Authorization", &format!("Bearer {}", TOKEN.read().as_ref().unwrap().1.secret()))
+        .header("Authorization", &format!("Bearer {}", token.as_ref().unwrap().1.secret()))
         .send()
         .await
+        .map_err(|e| e.to_string())?
         .text()
         .await
-        .map_err(|e| e.to_string())?
+        .map_err(|e| e.to_string())?;
+
+    Ok(response)
 }
 
 fn main() {
