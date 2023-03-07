@@ -2,11 +2,11 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use once_cell::sync::Lazy;
-use serde_json::{Value, Map};
 use reqwest::Client;
+use serde_json::{Map, Value};
 use std::time::Duration;
-use tauri::AppHandle;
 use tauri::async_runtime::RwLock;
+use tauri::AppHandle;
 
 mod pkce;
 use pkce::Pkce;
@@ -42,15 +42,16 @@ async fn get_userinfos(h: AppHandle, f: Fournisseur) -> Result<String, String> {
         .await
         .map_err(|e| e.to_string())?;
 
-        let map = userinfos.as_object().unwrap_or(&LOL_MAP);
-        let userinfos = map.iter()
-            .filter_map(|(k, v)| {
-                let mut map = Map::new();
-                map.insert("propriété".into(), Value::String(k.to_owned()));
-                map.insert("valeur".into(), v.to_owned());
-                Some(Value::Object(map))
-            })
-            .collect::<Vec<Value>>();
+    let map = userinfos.as_object().unwrap_or(&LOL_MAP);
+    let userinfos = map
+        .iter()
+        .filter_map(|(k, v)| {
+            let mut map = Map::new();
+            map.insert("propriété".into(), Value::String(k.to_owned()));
+            map.insert("valeur".into(), v.to_owned());
+            Some(Value::Object(map))
+        })
+        .collect::<Vec<Value>>();
 
     Ok(serde_json::to_string(&userinfos).unwrap_or_default())
 }
