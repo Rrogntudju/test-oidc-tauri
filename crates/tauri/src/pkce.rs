@@ -43,7 +43,7 @@ impl Pkce {
             .url();
 
         let listener = TcpListener::bind("[::1]:86")?;
-        let oauth_window = WindowBuilder::new(h, "oauth2", WindowUrl::App(authorize_url.as_str().into())).build()?;
+        let oauth_window = WindowBuilder::new(h, "oauth2", WindowUrl::External(authorize_url)).build()?;
         oauth_window.show()?;
 
         let mut code = AuthorizationCode::new(String::new());
