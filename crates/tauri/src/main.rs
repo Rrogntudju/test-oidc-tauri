@@ -6,7 +6,7 @@ use reqwest::Client;
 use serde_json::{Map, Value};
 use std::time::Duration;
 use tauri::async_runtime::RwLock;
-use tauri::AppHandle;
+use tauri::{AppHandle, command};
 
 mod pkce;
 use pkce::Pkce;
@@ -18,7 +18,7 @@ static TOKEN: Lazy<RwLock<Option<(Fournisseur, Pkce)>>> = Lazy::new(|| RwLock::n
 static CLIENT: Lazy<Client> = Lazy::new(|| Client::builder().timeout(Duration::from_secs(10)).build().unwrap());
 static LOL_MAP: Lazy<Map<String, Value>> = Lazy::new(|| Map::default());
 
-#[tauri::command]
+#[command]
 async fn get_userinfos(f: Fournisseur, h: AppHandle) -> Result<String, String> {
     let token = TOKEN.read().await;
     if token.is_some() {

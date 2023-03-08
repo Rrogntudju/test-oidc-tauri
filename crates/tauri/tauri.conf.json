@@ -8,7 +8,7 @@
   },
   "package": {
     "productName": "userinfos",
-    "version": "0.0.1"
+    "version": "0.1.0"
   },
   "tauri": {
     "allowlist": {
@@ -30,14 +30,12 @@
     },
     "windows": [
       {
-        "url": "ui/userinfos.htm",
         "fullscreen": false,
         "resizable": true,
         "title": "Userinfos",
-        "width": 800,
+        "width": 1000,
         "height": 600
       }
     ]
   }
 }
- 
