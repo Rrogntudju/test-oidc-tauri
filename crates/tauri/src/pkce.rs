@@ -7,7 +7,6 @@ use oauth2::{
     TokenUrl,
 };
 use std::io::{BufRead, BufReader};
-use std::net::TcpListener;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, WindowBuilder, WindowUrl};
 use url::Url;
@@ -19,7 +18,7 @@ pub struct Pkce {
 }
 
 impl Pkce {
-    pub fn new(f: &Fournisseur, h: &AppHandle) -> Result<Self, Error> {
+    pub async fn new(f: &Fournisseur, h: &AppHandle) -> Result<Self, Error> {
         let (id, secret) = f.secrets();
         let id = ClientId::new(id.to_owned());
         let secret = ClientSecret::new(secret.to_owned());
@@ -42,9 +41,10 @@ impl Pkce {
             .set_pkce_challenge(pkce_code_challenge)
             .url();
 
-        let listener = TcpListener::bind("[::1]:86")?;
-        let oauth_window = WindowBuilder::new(h, "oauth2", WindowUrl::External(authorize_url)).build()?;
-        oauth_window.show()?;
+        let listener = tokio::net::TcpListener::bind("[::1]:86").await?.into_std()?;
+        let _oauth_window = WindowBuilder::new(h, "oauth2", WindowUrl::External(authorize_url))
+            .title(format!("{f}"))
+            .build()?;
 
         let mut code = AuthorizationCode::new(String::new());
         if let Some(stream) = listener.incoming().flatten().next() {
@@ -77,7 +77,7 @@ impl Pkce {
             assert_eq!(csrf_state.secret(), value.as_ref());
         }
 
-        oauth_window.close()?;
+        //       oauth_window.close()?;
         let creation = Instant::now();
         let token = client.exchange_code(code).set_pkce_verifier(pkce_code_verifier).request(http_client)?;
         let expired_in = token.expires_in().unwrap_or(Duration::from_secs(3600));

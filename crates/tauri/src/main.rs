@@ -6,7 +6,7 @@ use reqwest::Client;
 use serde_json::{Map, Value};
 use std::time::Duration;
 use tauri::async_runtime::Mutex;
-use tauri::{AppHandle, command};
+use tauri::{command, AppHandle};
 
 mod pkce;
 use pkce::Pkce;
@@ -24,11 +24,11 @@ async fn get_userinfos(f: Fournisseur, h: AppHandle) -> Result<String, String> {
     if token.is_some() {
         let (fournisseur, secret) = token.as_ref().unwrap();
         if &f != fournisseur || secret.is_expired() {
-            token.replace((f.to_owned(), Pkce::new(&f, &h).map_err(|e| e.to_string())?));
+            token.replace((f.to_owned(), Pkce::new(&f, &h).await.map_err(|e| e.to_string())?));
         }
     } else {
         println!("là");
-        token.replace((f.to_owned(), Pkce::new(&f, &h).map_err(|e| e.to_string())?));
+        token.replace((f.to_owned(), Pkce::new(&f, &h).await.map_err(|e| e.to_string())?));
     }
 
     let userinfos = CLIENT
