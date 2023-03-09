@@ -7,6 +7,7 @@ use oauth2::{
     TokenUrl,
 };
 use std::io::{BufRead, BufReader};
+use std::net::TcpListener;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, WindowBuilder, WindowUrl};
 use url::Url;
@@ -18,7 +19,7 @@ pub struct Pkce {
 }
 
 impl Pkce {
-    pub async fn new(f: &Fournisseur, h: &AppHandle) -> Result<Self, Error> {
+    pub fn new(f: &Fournisseur, h: &AppHandle) -> Result<Self, Error> {
         let (id, secret) = f.secrets();
         let id = ClientId::new(id.to_owned());
         let secret = ClientSecret::new(secret.to_owned());
@@ -41,43 +42,16 @@ impl Pkce {
             .set_pkce_challenge(pkce_code_challenge)
             .url();
 
-        let listener = tokio::net::TcpListener::bind("[::1]:86").await?.into_std()?;
+        let listener = TcpListener::bind("[::1]:86")?;
+
+
         let _oauth_window = WindowBuilder::new(h, "oauth2", WindowUrl::External(authorize_url))
             .title(format!("{f}"))
+            .inner_size(800., 600.)
             .build()?;
 
-        let mut code = AuthorizationCode::new(String::new());
-        if let Some(stream) = listener.incoming().flatten().next() {
-            let mut request_line = String::new();
-            let mut reader = BufReader::new(&stream);
-            reader.read_line(&mut request_line)?;
 
-            let redirect_url = request_line.split_whitespace().nth(1).unwrap();
-            let url = Url::parse(&(format!("http://localhost{redirect_url}")))?;
-            let code_pair = url
-                .query_pairs()
-                .find(|pair| {
-                    let (key, _) = pair;
-                    key == "code"
-                })
-                .expect("Le code d'autorisation doit être présent");
-
-            let (_, value) = code_pair;
-            code = AuthorizationCode::new(value.into_owned());
-
-            let state_pair = url
-                .query_pairs()
-                .find(|pair| {
-                    let (key, _) = pair;
-                    key == "state"
-                })
-                .expect("Le jeton csrf doit être présent");
-
-            let (_, value) = state_pair;
-            assert_eq!(csrf_state.secret(), value.as_ref());
-        }
-
-        //       oauth_window.close()?;
+        println!("là");
         let creation = Instant::now();
         let token = client.exchange_code(code).set_pkce_verifier(pkce_code_verifier).request(http_client)?;
         let expired_in = token.expires_in().unwrap_or(Duration::from_secs(3600));
@@ -92,4 +66,48 @@ impl Pkce {
     pub fn secret(&self) -> &String {
         self.token.secret()
     }
+}
+
+fn start_listening(listener: TcpListener, csrf: CsrfToken) -> Result<(), Error> {
+    let handle = std::thread::spawn(move || {
+        let mut code = AuthorizationCode::new(String::new());
+        for stream in listener.incoming() {
+            match stream {
+                Ok(stream) => {
+                    let mut request_line = String::new();
+                    let mut reader = BufReader::new(&stream);
+                    reader.read_line(&mut request_line)?;
+
+                    let redirect_url = request_line.split_whitespace().nth(1).unwrap();
+                    let url = Url::parse(&(format!("http://localhost{redirect_url}")))?;
+                    let code_pair = url
+                        .query_pairs()
+                        .find(|pair| {
+                            let (key, _) = pair;
+                            key == "code"
+                        })
+                        .expect("Le code d'autorisation doit être présent");
+
+                    let (_, value) = code_pair;
+                    code = AuthorizationCode::new(value.into_owned());
+
+                    let state_pair = url
+                        .query_pairs()
+                        .find(|pair| {
+                            let (key, _) = pair;
+                            key == "state"
+                        })
+                        .expect("Le jeton csrf doit être présent");
+
+                    let (_, value) = state_pair;
+                    assert_eq!(csrf.secret(), value.as_ref());
+                }
+                Err(e) => {
+
+                }
+            }
+        }
+    });
+
+    Ok(())
 }
