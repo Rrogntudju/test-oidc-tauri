@@ -5,7 +5,7 @@ use once_cell::sync::Lazy;
 use reqwest::Client;
 use serde_json::{Map, Value};
 use std::time::Duration;
-use tauri::async_runtime::RwLock;
+use tauri::async_runtime::Mutex;
 use tauri::{AppHandle, command};
 
 mod pkce;
@@ -14,21 +14,20 @@ use pkce::Pkce;
 mod fournisseur;
 pub use fournisseur::Fournisseur;
 
-static TOKEN: Lazy<RwLock<Option<(Fournisseur, Pkce)>>> = Lazy::new(|| RwLock::new(None));
+static TOKEN: Lazy<Mutex<Option<(Fournisseur, Pkce)>>> = Lazy::new(|| Mutex::new(None));
 static CLIENT: Lazy<Client> = Lazy::new(|| Client::builder().timeout(Duration::from_secs(10)).build().unwrap());
 static LOL_MAP: Lazy<Map<String, Value>> = Lazy::new(|| Map::default());
 
 #[command]
 async fn get_userinfos(f: Fournisseur, h: AppHandle) -> Result<String, String> {
-    let token = TOKEN.read().await;
+    let mut token = TOKEN.lock().await;
     if token.is_some() {
         let (fournisseur, secret) = token.as_ref().unwrap();
         if &f != fournisseur || secret.is_expired() {
-            let mut token = TOKEN.write().await;
             token.replace((f.to_owned(), Pkce::new(&f, &h).map_err(|e| e.to_string())?));
         }
     } else {
-        let mut token = TOKEN.write().await;
+        println!("là");
         token.replace((f.to_owned(), Pkce::new(&f, &h).map_err(|e| e.to_string())?));
     }
 
