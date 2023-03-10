@@ -8,12 +8,12 @@ use oauth2::{
 };
 use std::io::{BufRead, BufReader};
 use std::net::TcpListener;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc::{sync_channel, Receiver};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, WindowBuilder, WindowUrl};
 use url::Url;
-use std::sync::Arc;
-use std::sync::mpsc::{Receiver, sync_channel};
-use std::sync::atomic::{AtomicBool, Ordering};
 
 pub struct Pkce {
     token: AccessToken,
@@ -46,19 +46,38 @@ impl Pkce {
             .url();
 
         let listener = TcpListener::bind("[::1]:86")?;
+        let (rx, stop_signal) = start_listening(listener, csrf_state)?;
 
-
-        let _oauth_window = WindowBuilder::new(h, "oauth2", WindowUrl::External(authorize_url))
+        let oauth_window = match WindowBuilder::new(h, "oauth2", WindowUrl::External(authorize_url))
             .title(format!("{f}"))
             .inner_size(800., 600.)
-            .build()?;
+            .build()
+        {
+            Ok(oauth_window) => oauth_window,
+            Err(e) => {
+                stop_signal.store(true, Ordering::Relaxed);
+                return Err(e.into());
+            }
+        };
 
+        let code = loop {
+            match rx.try_recv() {
+                Ok(code) => {
+                    oauth_window.close()?;
+                    break code;
+                }
+                Err(e) => {}
+            }
+        };
 
-        println!("là");
+        oauth_window.close()?;
+        stop_signal.store(true, Ordering::Relaxed);
+
         let creation = Instant::now();
         let token = client.exchange_code(code).set_pkce_verifier(pkce_code_verifier).request(http_client)?;
         let expired_in = token.expires_in().unwrap_or(Duration::from_secs(3600));
         let token = token.access_token().to_owned();
+
         Ok(Self { token, creation, expired_in })
     }
 
@@ -78,14 +97,12 @@ fn start_listening(listener: TcpListener, csrf: CsrfToken) -> Result<(Receiver<A
     listener.set_nonblocking(true).expect("set_nonblocking a retourné une erreur");
 
     std::thread::spawn(move || {
-        let mut code = AuthorizationCode::new(String::new());
-
         while !stop_signal2.load(Ordering::Relaxed) {
             let stream = listener.accept();
             match stream {
-                Ok((stream, _)) => {
+                Ok((ref stream, _)) => {
                     let mut request_line = String::new();
-                    let mut reader = BufReader::new(&stream);
+                    let mut reader = BufReader::new(stream);
                     reader.read_line(&mut request_line).unwrap();
 
                     let redirect_url = request_line.split_whitespace().nth(1).unwrap();
@@ -99,7 +116,7 @@ fn start_listening(listener: TcpListener, csrf: CsrfToken) -> Result<(Receiver<A
                         .expect("Le code d'autorisation doit être présent");
 
                     let (_, value) = code_pair;
-                    code = AuthorizationCode::new(value.into_owned());
+                    let code = AuthorizationCode::new(value.into_owned());
 
                     let state_pair = url
                         .query_pairs()
@@ -112,14 +129,14 @@ fn start_listening(listener: TcpListener, csrf: CsrfToken) -> Result<(Receiver<A
                     let (_, value) = state_pair;
                     assert_eq!(csrf.secret(), value.as_ref());
 
-                    tx.send(code);
-                    return;
-                },
+                    let _ = tx.send(code);
+                    break;
+                }
                 Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-                    std::thread::sleep(std::time::Duration::from_millis(5));
+                    std::thread::sleep(Duration::from_millis(10));
                     continue;
                 }
-                Err(e) => panic!("encountered IO error: {e}"),
+                Err(e) => panic!("accept IO error: {e}"),
             }
         }
     });
