@@ -24,10 +24,10 @@ async fn get_userinfos(f: Fournisseur, h: AppHandle) -> Result<String, String> {
     if token.is_some() {
         let (fournisseur, secret) = token.as_ref().unwrap();
         if &f != fournisseur || secret.is_expired() {
-            token.replace((f.to_owned(), Pkce::new(&f, &h).map_err(|e| e.to_string())?));
+            token.replace((f.to_owned(), Pkce::new(&f, &h).await.map_err(|e| e.to_string())?));
         }
     } else {
-        token.replace((f.to_owned(), Pkce::new(&f, &h).map_err(|e| e.to_string())?));
+        token.replace((f.to_owned(), Pkce::new(&f, &h).await.map_err(|e| e.to_string())?));
     }
 
     let userinfos = CLIENT

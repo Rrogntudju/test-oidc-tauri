@@ -1,5 +1,5 @@
 use crate::Fournisseur;
-use anyhow::Error;
+use anyhow::{anyhow, Error};
 use oauth2::basic::BasicClient;
 use oauth2::reqwest::http_client;
 use oauth2::{
@@ -9,10 +9,11 @@ use oauth2::{
 use std::io::{BufRead, BufReader};
 use std::net::TcpListener;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::mpsc::{sync_channel, Receiver};
+use std::sync::mpsc::{sync_channel, Receiver, RecvError};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, WindowBuilder, WindowUrl};
+use tauri::async_runtime::spawn_blocking;
 use url::Url;
 
 pub struct Pkce {
@@ -22,7 +23,7 @@ pub struct Pkce {
 }
 
 impl Pkce {
-    pub fn new(f: &Fournisseur, h: &AppHandle) -> Result<Self, Error> {
+    pub async fn new(f: &Fournisseur, h: &AppHandle) -> Result<Self, Error> {
         let (id, secret) = f.secrets();
         let id = ClientId::new(id.to_owned());
         let secret = ClientSecret::new(secret.to_owned());
@@ -60,17 +61,20 @@ impl Pkce {
             }
         };
 
-        let code = loop {
-            match rx.try_recv() {
+        let receive = spawn_blocking(move || {
+            match rx.recv() {
                 Ok(code) => {
                     oauth_window.close()?;
-                    break code;
+                    Ok(code)
+                },
+                Err(RecvError) => {
+                    oauth_window.close()?;
+                    Err(anyhow!("l'utilisateur ne s'est pas authentifié dans le délai imparti"))
                 }
-                Err(e) => {}
             }
-        };
+        });
 
-        oauth_window.close()?;
+        let code = receive.await??;
         stop_signal.store(true, Ordering::Relaxed);
 
         let creation = Instant::now();
@@ -97,6 +101,7 @@ fn start_listening(listener: TcpListener, csrf: CsrfToken) -> Result<(Receiver<A
     listener.set_nonblocking(true).expect("set_nonblocking a retourné une erreur");
 
     std::thread::spawn(move || {
+        let now = Instant::now();
         while !stop_signal2.load(Ordering::Relaxed) {
             let stream = listener.accept();
             match stream {
@@ -133,6 +138,9 @@ fn start_listening(listener: TcpListener, csrf: CsrfToken) -> Result<(Receiver<A
                     break;
                 }
                 Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                    if now.elapsed() == Duration::from_secs(60) {
+                        break;
+                    }
                     std::thread::sleep(Duration::from_millis(10));
                     continue;
                 }
