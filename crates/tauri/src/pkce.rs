@@ -11,6 +11,9 @@ use std::net::TcpListener;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, WindowBuilder, WindowUrl};
 use url::Url;
+use std::sync::Arc;
+use std::sync::mpsc::{Receiver, sync_channel};
+use std::sync::atomic::{AtomicBool, Ordering};
 
 pub struct Pkce {
     token: AccessToken,
@@ -68,46 +71,49 @@ impl Pkce {
     }
 }
 
-fn start_listening(listener: TcpListener, csrf: CsrfToken) -> Result<(), Error> {
-    let handle = std::thread::spawn(move || {
+fn start_listening(listener: TcpListener, csrf: CsrfToken) -> Result<(Receiver<AuthorizationCode>, Arc<AtomicBool>), Error> {
+    let (tx, rx) = sync_channel::<AuthorizationCode>(1);
+    let stop_signal = Arc::new(AtomicBool::new(false));
+    let stop_signal2 = stop_signal.clone();
+    let listen = listener.incoming().filter_map(Result::ok);
+
+    std::thread::spawn(move || {
         let mut code = AuthorizationCode::new(String::new());
-        for stream in listener.incoming() {
-            match stream {
-                Ok(stream) => {
-                    let mut request_line = String::new();
-                    let mut reader = BufReader::new(&stream);
-                    reader.read_line(&mut request_line)?;
 
-                    let redirect_url = request_line.split_whitespace().nth(1).unwrap();
-                    let url = Url::parse(&(format!("http://localhost{redirect_url}")))?;
-                    let code_pair = url
-                        .query_pairs()
-                        .find(|pair| {
-                            let (key, _) = pair;
-                            key == "code"
-                        })
-                        .expect("Le code d'autorisation doit être présent");
+        while !stop_signal2.load(Ordering::Relaxed) {
+            let stream = listen.next().unwrap();
+            let mut request_line = String::new();
+            let mut reader = BufReader::new(&stream);
+            reader.read_line(&mut request_line).unwrap();
 
-                    let (_, value) = code_pair;
-                    code = AuthorizationCode::new(value.into_owned());
+            let redirect_url = request_line.split_whitespace().nth(1).unwrap();
+            let url = Url::parse(&(format!("http://localhost{redirect_url}"))).unwrap();
+            let code_pair = url
+                .query_pairs()
+                .find(|pair| {
+                    let (key, _) = pair;
+                    key == "code"
+                })
+                .expect("Le code d'autorisation doit être présent");
 
-                    let state_pair = url
-                        .query_pairs()
-                        .find(|pair| {
-                            let (key, _) = pair;
-                            key == "state"
-                        })
-                        .expect("Le jeton csrf doit être présent");
+            let (_, value) = code_pair;
+            code = AuthorizationCode::new(value.into_owned());
 
-                    let (_, value) = state_pair;
-                    assert_eq!(csrf.secret(), value.as_ref());
-                }
-                Err(e) => {
+            let state_pair = url
+                .query_pairs()
+                .find(|pair| {
+                    let (key, _) = pair;
+                    key == "state"
+                })
+                .expect("Le jeton csrf doit être présent");
 
-                }
-            }
+            let (_, value) = state_pair;
+            assert_eq!(csrf.secret(), value.as_ref());
+
+            tx.send(code);
+            return;
         }
     });
 
-    Ok(())
+    Ok((rx, stop_signal))
 }
