@@ -12,8 +12,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{sync_channel, Receiver, RecvError};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tauri::{AppHandle, WindowBuilder, WindowUrl};
 use tauri::async_runtime::spawn_blocking;
+use tauri::{AppHandle, WindowBuilder, WindowUrl};
 use url::Url;
 
 pub struct Pkce {
@@ -61,16 +61,14 @@ impl Pkce {
             }
         };
 
-        let receive = spawn_blocking(move || {
-            match rx.recv() {
-                Ok(code) => {
-                    oauth_window.close()?;
-                    Ok(code)
-                },
-                Err(RecvError) => {
-                    oauth_window.close()?;
-                    Err(anyhow!("l'utilisateur ne s'est pas authentifié dans le délai imparti"))
-                }
+        let receive = spawn_blocking(move || match rx.recv() {
+            Ok(code) => {
+                oauth_window.close()?;
+                Ok(code)
+            }
+            Err(RecvError) => {
+                oauth_window.close()?;
+                Err(anyhow!("l'utilisateur ne s'est pas authentifié dans le délai imparti"))
             }
         });
 
