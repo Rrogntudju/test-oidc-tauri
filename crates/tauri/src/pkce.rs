@@ -1,7 +1,7 @@
 use crate::Fournisseur;
 use anyhow::{anyhow, Error};
 use oauth2::basic::BasicClient;
-use oauth2::reqwest::http_client;
+use oauth2::reqwest::async_http_client;
 use oauth2::{
     AccessToken, AuthType, AuthUrl, AuthorizationCode, ClientId, ClientSecret, CsrfToken, PkceCodeChallenge, RedirectUrl, Scope, TokenResponse,
     TokenUrl,
@@ -51,7 +51,7 @@ impl Pkce {
 
         let oauth_window = match WindowBuilder::new(h, "oauth2", WindowUrl::External(authorize_url))
             .title(format!("{f}"))
-            .inner_size(800., 600.)
+            .inner_size(600., 600.)
             .build()
         {
             Ok(oauth_window) => oauth_window,
@@ -63,7 +63,7 @@ impl Pkce {
 
         let receive = spawn_blocking(move || match rx.recv() {
             Ok(code) => Ok(code),
-            Err(RecvError) => Err(anyhow!("l'utilisateur ne s'est pas authentifié dans le délai imparti")),
+            Err(RecvError) => Err(anyhow!("Vous devez vous authentifier")),
         });
 
         let code_result = receive.await.expect("spawn_blocking error");
@@ -71,7 +71,7 @@ impl Pkce {
         let code = code_result?;
 
         let creation = Instant::now();
-        let token = client.exchange_code(code).set_pkce_verifier(pkce_code_verifier).request(http_client)?;
+        let token = client.exchange_code(code).set_pkce_verifier(pkce_code_verifier).request_async(async_http_client).await?;
         let expired_in = token.expires_in().unwrap_or(Duration::from_secs(3600));
         let token = token.access_token().to_owned();
 

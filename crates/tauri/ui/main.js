@@ -2,7 +2,7 @@ const { invoke } = window.__TAURI__.tauri;
 
   const userInfosViewModel = {
     propriétés: ko.observableArray( [
-      // { propriété: 'name', valeur : 'LOL' },
+    //  { propriété: 'name', valeur : 'LOL' },
     ]),
 
     fournisseur: ko.observable("Microsoft"),
@@ -22,14 +22,16 @@ const { invoke } = window.__TAURI__.tauri;
 
         await invoke("get_userinfos", { f: this.fournisseur() })
         .then((data) => {
+            var propriétés = JSON.parse(data);
             this.propriétés.removeAll();
-            ko.utils.arrayPushAll(this.propriétés, data.propriétés);
+            ko.utils.arrayPushAll(this.propriétés, propriétés);
         })
         .catch((error) => {
             console.log("Erreur Invoke: " + error);
             this.erreurInvoke(error);
-            this.enableUserInfos(true);
         });
+        
+        this.enableUserInfos(true);
     }
 }
 
