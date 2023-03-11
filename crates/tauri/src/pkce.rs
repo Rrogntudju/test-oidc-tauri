@@ -62,18 +62,13 @@ impl Pkce {
         };
 
         let receive = spawn_blocking(move || match rx.recv() {
-            Ok(code) => {
-                oauth_window.close()?;
-                Ok(code)
-            }
-            Err(RecvError) => {
-                oauth_window.close()?;
-                Err(anyhow!("l'utilisateur ne s'est pas authentifié dans le délai imparti"))
-            }
+            Ok(code) => Ok(code),
+            Err(RecvError) => Err(anyhow!("l'utilisateur ne s'est pas authentifié dans le délai imparti")),
         });
 
-        let code = receive.await??;
-        stop_signal.store(true, Ordering::Relaxed);
+        let code_result = receive.await.expect("spawn_blocking error");
+        oauth_window.close()?;
+        let code = code_result?;
 
         let creation = Instant::now();
         let token = client.exchange_code(code).set_pkce_verifier(pkce_code_verifier).request(http_client)?;
