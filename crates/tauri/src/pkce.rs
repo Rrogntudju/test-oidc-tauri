@@ -131,7 +131,7 @@ fn start_listening(listener: TcpListener, csrf: CsrfToken) -> Result<(Receiver<A
                     break;
                 }
                 Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-                    if now.elapsed() == Duration::from_secs(60) {
+                    if now.elapsed().as_secs() >= 120 {
                         break;
                     }
                     std::thread::sleep(Duration::from_millis(10));

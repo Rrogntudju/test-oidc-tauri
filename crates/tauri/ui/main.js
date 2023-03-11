@@ -22,15 +22,14 @@ const { invoke } = window.__TAURI__.tauri;
 
         await invoke("get_userinfos", { f: this.fournisseur() })
         .then((data) => {
-            var propriétés = JSON.parse(data);
             this.propriétés.removeAll();
-            ko.utils.arrayPushAll(this.propriétés, propriétés);
+            ko.utils.arrayPushAll(this.propriétés, JSON.parse(data));
         })
         .catch((error) => {
             console.log("Erreur Invoke: " + error);
             this.erreurInvoke(error);
         });
-        
+
         this.enableUserInfos(true);
     }
 }
