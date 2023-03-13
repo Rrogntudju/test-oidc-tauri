@@ -134,7 +134,7 @@ fn start_listening(listener: TcpListener, csrf: CsrfToken) -> Result<(Receiver<A
                     if now.elapsed().as_secs() >= 120 {
                         break;
                     }
-                    std::thread::sleep(Duration::from_millis(10));
+                    std::thread::sleep(Duration::from_millis(100));
                     continue;
                 }
                 Err(e) => panic!("accept IO error: {e}"),
