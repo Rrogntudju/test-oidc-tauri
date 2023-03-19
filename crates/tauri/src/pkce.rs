@@ -47,11 +47,12 @@ impl Pkce {
             .url();
 
         let listener = TcpListener::bind("[::1]:86")?;
-        let (rx, stop_signal) = start_listening(listener, csrf )?;
+        let (rx, stop_signal) = start_listening(listener, csrf)?;
 
         let oauth_window = match WindowBuilder::new(h, "oauth2", WindowUrl::External(authorize_url))
             .title(format!("{f}"))
             .inner_size(600., 600.)
+            .visible(false)
             .build()
         {
             Ok(oauth_window) => oauth_window,
@@ -62,22 +63,38 @@ impl Pkce {
         };
 
         let receive = spawn_blocking(move || match rx.recv_timeout(Duration::from_secs(2)) {
-            Ok(code) => Ok(code),
+            Ok(code) => {
+                oauth_window.close().unwrap_or_default();
+                Ok(code)
+            }
             Err(RecvTimeoutError::Timeout) => {
                 oauth_window.show().unwrap_or_default();
                 match rx.recv() {
-                    Ok(code) => Ok(code),
-                    Err(RecvError) => Err(anyhow!("Vous devez vous authentifier")),
+                    Ok(code) => {
+                        oauth_window.close().unwrap_or_default();
+                        Ok(code)
+                    }
+                    Err(RecvError) => {
+                        oauth_window.close().unwrap_or_default();
+                        Err(anyhow!("Vous devez vous authentifier"))
+                    }
                 }
-            },
-            Err(RecvTimeoutError::Disconnected) => Err(anyhow!("Vous devez vous authentifier")),
+            }
+            Err(RecvTimeoutError::Disconnected) => {
+                oauth_window.close().unwrap_or_default();
+                Err(anyhow!("Vous devez vous authentifier"))
+            }
         });
 
-        let code_result = receive.await.expect("spawn_blocking error");
+        let code_result = receive.await?;
         let code = code_result?;
 
         let creation = Instant::now();
-        let token = client.exchange_code(code).set_pkce_verifier(pkce_code_verifier).request_async(async_http_client).await?;
+        let token = client
+            .exchange_code(code)
+            .set_pkce_verifier(pkce_code_verifier)
+            .request_async(async_http_client)
+            .await?;
         let expired_in = token.expires_in().unwrap_or(Duration::from_secs(3600));
         let token = token.access_token().to_owned();
 
@@ -137,7 +154,7 @@ fn start_listening(listener: TcpListener, csrf: CsrfToken) -> Result<(Receiver<A
                     break;
                 }
                 Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-                    if now.elapsed().as_secs() >= 120 {
+                    if now.elapsed().as_secs() >= 90 {
                         break;
                     }
                     std::thread::sleep(Duration::from_millis(100));
