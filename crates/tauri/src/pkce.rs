@@ -9,7 +9,7 @@ use oauth2::{
 use std::io::{BufRead, BufReader};
 use std::net::TcpListener;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::mpsc::{sync_channel, Receiver, RecvError};
+use std::sync::mpsc::{sync_channel, Receiver, RecvError, RecvTimeoutError};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tauri::async_runtime::spawn_blocking;
@@ -38,7 +38,7 @@ impl Pkce {
 
         let (pkce_code_challenge, pkce_code_verifier) = PkceCodeChallenge::new_random_sha256();
 
-        let (authorize_url, csrf_state) = client
+        let (authorize_url, csrf) = client
             .authorize_url(CsrfToken::new_random)
             .add_scope(Scope::new("openid".to_owned()))
             .add_scope(Scope::new("email".to_owned()))
@@ -47,7 +47,7 @@ impl Pkce {
             .url();
 
         let listener = TcpListener::bind("[::1]:86")?;
-        let (rx, stop_signal) = start_listening(listener, csrf_state)?;
+        let (rx, stop_signal) = start_listening(listener, csrf )?;
 
         let oauth_window = match WindowBuilder::new(h, "oauth2", WindowUrl::External(authorize_url))
             .title(format!("{f}"))
@@ -61,13 +61,19 @@ impl Pkce {
             }
         };
 
-        let receive = spawn_blocking(move || match rx.recv() {
+        let receive = spawn_blocking(move || match rx.recv_timeout(Duration::from_secs(2)) {
             Ok(code) => Ok(code),
-            Err(RecvError) => Err(anyhow!("Vous devez vous authentifier")),
+            Err(RecvTimeoutError::Timeout) => {
+                oauth_window.show().unwrap_or_default();
+                match rx.recv() {
+                    Ok(code) => Ok(code),
+                    Err(RecvError) => Err(anyhow!("Vous devez vous authentifier")),
+                }
+            },
+            Err(RecvTimeoutError::Disconnected) => Err(anyhow!("Vous devez vous authentifier")),
         });
 
         let code_result = receive.await.expect("spawn_blocking error");
-        oauth_window.close()?;
         let code = code_result?;
 
         let creation = Instant::now();
