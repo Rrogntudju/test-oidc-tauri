@@ -86,9 +86,7 @@ impl Pkce {
             }
         });
 
-        let code_result = receive.await?;
-        let code = code_result?;
-
+        let code = receive.await??;
         let creation = Instant::now();
         let token = client
             .exchange_code(code)
