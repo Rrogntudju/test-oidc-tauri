@@ -16,7 +16,7 @@ pub use fournisseur::Fournisseur;
 
 static TOKEN: Lazy<Mutex<Option<(Fournisseur, Pkce)>>> = Lazy::new(|| Mutex::new(None));
 static CLIENT: Lazy<Client> = Lazy::new(|| Client::builder().timeout(Duration::from_secs(10)).build().unwrap());
-static LOL_MAP: Lazy<Map<String, Value>> = Lazy::new(|| Map::default());
+static LOL_MAP: Lazy<Map<String, Value>> = Lazy::new(Map::default);
 
 #[command]
 async fn get_userinfos(f: Fournisseur, h: AppHandle) -> Result<String, String> {
@@ -43,11 +43,11 @@ async fn get_userinfos(f: Fournisseur, h: AppHandle) -> Result<String, String> {
     let map = userinfos.as_object().unwrap_or(&LOL_MAP);
     let userinfos = map
         .iter()
-        .filter_map(|(k, v)| {
+        .map(|(k, v)| {
             let mut map = Map::new();
             map.insert("propriété".into(), Value::String(k.to_owned()));
             map.insert("valeur".into(), v.to_owned());
-            Some(Value::Object(map))
+            Value::Object(map)
         })
         .collect::<Vec<Value>>();
 
