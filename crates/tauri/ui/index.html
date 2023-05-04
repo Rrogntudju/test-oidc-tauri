@@ -12,6 +12,12 @@
                     background-color: rgb(60, 60, 60);
                     color: white;
                 }
+                tr.mode:nth-child(odd) {
+                    background-color: rgb(60, 60, 60);
+                }
+                tr.mode:nth-child(even) {
+                    background-color: rgb(100, 100, 100);
+                }
             }
         </style>
     </head>
@@ -45,10 +51,10 @@
 
             <table class="w3-table-all">
                 <thead>
-                    <tr class="w3-text-orange"><th>Propriété</th><th>Valeur</th></tr>
+                    <tr class="w3-text-orange mode"><th>Propriété</th><th>Valeur</th></tr>
                 </thead>
                 <tbody data-bind="foreach: propriétés">
-                    <tr>
+                    <tr class="mode">
                         <td data-bind="text: propriété"></td>
                         <td data-bind="text: valeur"></td>
                     </tr>
