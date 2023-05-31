@@ -17,7 +17,7 @@
     "bundle": {
       "active": true,
       "icon": [
-        "src/icons/icon.ico"
+        "src/icons/openid.png"
       ],
       "identifier": "test.oidc",
       "targets": "all"
