@@ -1,5 +1,5 @@
 use crate::Fournisseur;
-use anyhow::{anyhow, Error};
+use anyhow::{anyhow, Error, Context};
 use oauth2::basic::BasicClient;
 use oauth2::reqwest::async_http_client;
 use oauth2::{
@@ -45,8 +45,7 @@ impl Pkce {
             .add_scope(Scope::new("profile".to_owned()))
             .set_pkce_challenge(pkce_code_challenge)
             .url();
-
-        let listener = TcpListener::bind("[::1]:86")?;
+        let listener = TcpListener::bind("[::1]:86").context("bind port 86")?;
         let (rx, stop_signal) = start_listening(listener, csrf)?;
 
         let oauth_window = match WindowBuilder::new(h, "oauth2", WindowUrl::External(authorize_url))
@@ -152,7 +151,7 @@ fn start_listening(listener: TcpListener, csrf: CsrfToken) -> Result<(Receiver<A
                     break;
                 }
                 Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-                    if now.elapsed().as_secs() >= 90 {
+                    if now.elapsed().as_secs() >= 150 {
                         break;
                     }
                     std::thread::sleep(Duration::from_millis(100));
