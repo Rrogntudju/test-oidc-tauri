@@ -32,7 +32,7 @@ async fn get_userinfos(f: Fournisseur, h: AppHandle) -> Result<String, String> {
     let userinfos = CLIENT
         .get_or_init(|| Client::builder().timeout(Duration::from_secs(10)).build().unwrap())
         .get(f.userinfos())
-        .header("Authorization", format!("Bearer {}", token.as_ref().unwrap().1.secret()))
+        .header("Authorization", format!("Bearer {}", TOKEN.get().unwrap().as_ref().unwrap().1.secret()))
         .send()
         .await
         .map_err(|e| e.to_string())?
