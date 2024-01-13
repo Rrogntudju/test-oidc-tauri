@@ -6,7 +6,7 @@ use oauth2::{
     AccessToken, AuthType, AuthUrl, AuthorizationCode, ClientId, ClientSecret, CsrfToken, PkceCodeChallenge, RedirectUrl, Scope, TokenResponse,
     TokenUrl,
 };
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, BufReader, Write};
 use std::net::TcpListener;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{sync_channel, Receiver, RecvError, RecvTimeoutError};
@@ -61,7 +61,7 @@ impl Pkce {
             }
         };
 
-        let receive = spawn_blocking(move || match rx.recv_timeout(Duration::from_secs(2)) {
+        let code = spawn_blocking(move || match rx.recv_timeout(Duration::from_secs(2)) {
             Ok(code) => {
                 oauth_window.close().unwrap_or_default();
                 Ok(code)
@@ -83,9 +83,9 @@ impl Pkce {
                 oauth_window.close().unwrap_or_default();
                 Err(anyhow!("Vous devez vous authentifier"))
             }
-        });
+        })
+        .await??;
 
-        let code = receive.await??;
         let creation = Instant::now();
         let token = client
             .exchange_code(code)
@@ -111,16 +111,15 @@ fn start_listening(listener: TcpListener, csrf: CsrfToken) -> Result<(Receiver<A
     let (tx, rx) = sync_channel::<AuthorizationCode>(1);
     let stop_signal = Arc::new(AtomicBool::new(false));
     let stop_signal2 = stop_signal.clone();
-    listener.set_nonblocking(true).expect("set_nonblocking a retourné une erreur");
+    listener.set_nonblocking(true).expect("Erreur set_nonblocking");
 
     std::thread::spawn(move || {
         let now = Instant::now();
         while !stop_signal2.load(Ordering::Relaxed) {
-            let stream = listener.accept();
-            match stream {
-                Ok((ref stream, _)) => {
+            match listener.accept() {
+                Ok((mut stream, _)) => {
                     let mut request_line = String::new();
-                    let mut reader = BufReader::new(stream);
+                    let mut reader = BufReader::new(&stream);
                     reader.read_line(&mut request_line).unwrap();
 
                     let redirect_url = request_line.split_whitespace().nth(1).unwrap();
@@ -146,6 +145,10 @@ fn start_listening(listener: TcpListener, csrf: CsrfToken) -> Result<(Receiver<A
 
                     let (_, value) = state_pair;
                     assert_eq!(csrf.secret(), value.as_ref());
+
+                    let message = "<p>Retournez dans l'application &#128526;</p>";
+                    let response = format!("HTTP/1.1 200 OK\r\ncontent-length: {}\r\n\r\n{message}", message.len());
+                    stream.write_all(response.as_bytes()).expect("Erreur write_all");
 
                     let _ = tx.send(code);
                     break;
