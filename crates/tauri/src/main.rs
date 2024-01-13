@@ -29,7 +29,8 @@ async fn get_userinfos(f: Fournisseur, h: AppHandle) -> Result<String, String> {
         let _ = TOKEN.set(Some((f.to_owned(), Pkce::new(&f, &h).await.map_err(|e| format!("{e:#}"))?)));
     }
 
-    let userinfos = CLIENT.get_or_init(|| Client::builder().timeout(Duration::from_secs(10)).build().unwrap())
+    let userinfos = CLIENT
+        .get_or_init(|| Client::builder().timeout(Duration::from_secs(10)).build().unwrap())
         .get(f.userinfos())
         .header("Authorization", format!("Bearer {}", token.as_ref().unwrap().1.secret()))
         .send()
