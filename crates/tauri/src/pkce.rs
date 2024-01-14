@@ -9,7 +9,7 @@ use oauth2::{
 use std::io::{BufRead, BufReader, Write};
 use std::net::TcpListener;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::mpsc::{sync_channel, Receiver, RecvError, RecvTimeoutError};
+use std::sync::mpsc::{sync_channel, Receiver, RecvTimeoutError};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tauri::async_runtime::spawn_blocking;
@@ -73,7 +73,7 @@ impl Pkce {
                         oauth_window.close().unwrap_or_default();
                         Ok(code)
                     }
-                    Err(RecvError) => {
+                    Err(_) => {
                         oauth_window.close().unwrap_or_default();
                         Err(anyhow!("Vous devez vous authentifier"))
                     }
