@@ -1,10 +1,11 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use once_cell::sync::Lazy;
 use reqwest::Client;
 use serde_json::{Map, Value};
-use std::sync::OnceLock;
 use std::time::Duration;
+use tauri::async_runtime::Mutex;
 use tauri::{command, AppHandle};
 
 mod pkce;
@@ -13,26 +14,25 @@ use pkce::Pkce;
 mod fournisseur;
 pub use fournisseur::Fournisseur;
 
-static TOKEN: OnceLock<Option<(Fournisseur, Pkce)>> = OnceLock::new();
-static CLIENT: OnceLock<Client> = OnceLock::new();
-static LOL_MAP: OnceLock<Map<String, Value>> = OnceLock::new();
+static TOKEN: Lazy<Mutex<Option<(Fournisseur, Pkce)>>> = Lazy::new(|| Mutex::new(None));
+static CLIENT: Lazy<Client> = Lazy::new(|| Client::builder().timeout(Duration::from_secs(10)).build().unwrap());
+static LOL_MAP: Lazy<Map<String, Value>> = Lazy::new(Map::default);
 
 #[command]
 async fn get_userinfos(f: Fournisseur, h: AppHandle) -> Result<String, String> {
-    let token = TOKEN.get_or_init(|| None);
+    let mut token = TOKEN.lock().await;
     if token.is_some() {
         let (fournisseur, secret) = token.as_ref().unwrap();
         if &f != fournisseur || secret.is_expired() {
-            let _ = TOKEN.set(Some((f.to_owned(), Pkce::new(&f, &h).await.map_err(|e| format!("{e:#}"))?)));
+            token.replace((f.to_owned(), Pkce::new(&f, &h).await.map_err(|e| format!("{e:#}"))?));
         }
     } else {
-        let _ = TOKEN.set(Some((f.to_owned(), Pkce::new(&f, &h).await.map_err(|e| format!("{e:#}"))?)));
+        token.replace((f.to_owned(), Pkce::new(&f, &h).await.map_err(|e| format!("{e:#}"))?));
     }
 
     let userinfos = CLIENT
-        .get_or_init(|| Client::builder().timeout(Duration::from_secs(10)).build().unwrap())
         .get(f.userinfos())
-        .header("Authorization", format!("Bearer {}", TOKEN.get().unwrap().as_ref().unwrap().1.secret()))
+        .header("Authorization", format!("Bearer {}", token.as_ref().unwrap().1.secret()))
         .send()
         .await
         .map_err(|e| e.to_string())?
@@ -40,7 +40,7 @@ async fn get_userinfos(f: Fournisseur, h: AppHandle) -> Result<String, String> {
         .await
         .map_err(|e| e.to_string())?;
 
-    let map = userinfos.as_object().unwrap_or(LOL_MAP.get_or_init(|| Map::default()));
+    let map = userinfos.as_object().unwrap_or(&LOL_MAP);
     let userinfos = map
         .iter()
         .map(|(k, v)| {
