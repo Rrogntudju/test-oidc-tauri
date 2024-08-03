@@ -1,7 +1,7 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 use reqwest::Client;
 use serde_json::{Map, Value};
 use std::time::Duration;
@@ -14,9 +14,9 @@ use pkce::Pkce;
 mod fournisseur;
 pub use fournisseur::Fournisseur;
 
-static TOKEN: Lazy<Mutex<Option<(Fournisseur, Pkce)>>> = Lazy::new(|| Mutex::new(None));
-static CLIENT: Lazy<Client> = Lazy::new(|| Client::builder().timeout(Duration::from_secs(10)).build().unwrap());
-static LOL_MAP: Lazy<Map<String, Value>> = Lazy::new(Map::default);
+static TOKEN: LazyLock<Mutex<Option<(Fournisseur, Pkce)>>> = LazyLock::new(|| Mutex::new(None));
+static CLIENT: LazyLock<Client> = LazyLock::new(|| Client::builder().timeout(Duration::from_secs(10)).build().unwrap());
+static LOL_MAP: LazyLock<Map<String, Value>> = LazyLock::new(Map::default);
 
 #[command]
 async fn get_userinfos(f: Fournisseur, h: AppHandle) -> Result<String, String> {
