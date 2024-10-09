@@ -1,33 +1,13 @@
 {
+  "productName": "userinfos",
+  "version": "0.1.0",
+  "identifier": "test.oidc",
   "build": {
-    "beforeDevCommand": "",
-    "beforeBuildCommand": "",
-    "devPath": "ui",
-    "distDir": "ui",
-    "withGlobalTauri": true
+    "frontendDist": "./ui"
   },
-  "package": {
-    "productName": "userinfos",
-    "version": "0.1.0"
-  },
-  "tauri": {
-    "allowlist": {
-      "all": false
-    },
-    "bundle": {
-      "active": true,
-      "icon": [
-        "src/icons/icon.ico",
-        "src/icons/icon.png"
-      ],
-      "identifier": "test.oidc",
-      "targets": "all"
-    },
+  "app": {
     "security": {
       "csp": null
-    },
-    "updater": {
-      "active": false
     },
     "windows": [
       {
@@ -37,6 +17,14 @@
         "width": 1200,
         "height": 600
       }
+    ],
+    "withGlobalTauri": true
+  },
+  "bundle": {
+    "active": true,
+    "icon": [
+      "src/icons/icon.ico",
+      "src/icons/icon.png"
     ]
   }
 }

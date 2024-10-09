@@ -13,7 +13,9 @@ use std::sync::mpsc::{sync_channel, Receiver, RecvTimeoutError};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tauri::async_runtime::spawn_blocking;
-use tauri::{AppHandle, WindowBuilder, WindowUrl};
+use tauri::WebviewUrl;
+use tauri::{AppHandle, WebviewWindowBuilder};
+
 use url::Url;
 
 pub struct Pkce {
@@ -48,7 +50,7 @@ impl Pkce {
         let listener = TcpListener::bind("[::1]:86").context("bind port 86")?;
         let (rx, stop_signal) = start_listening(listener, csrf)?;
 
-        let oauth_window = match WindowBuilder::new(h, "oauth2", WindowUrl::External(authorize_url))
+        let oauth_window = match WebviewWindowBuilder::new(h, "oauth2", WebviewUrl::External(authorize_url))
             .title(format!("{f}"))
             .inner_size(600., 600.)
             .visible(false)
